@@ -1,3 +1,4 @@
+from collections import defaultdict
 import re
 import logging
 import traceback
@@ -95,3 +96,27 @@ def calculate_experience_years(resume_text: str) -> float:
     except Exception as exc:
         logger.error(f"Error: {exc}")
         return 0.0
+    
+@tool
+def retrieve_ranking_resumes(query: str,vector_store,top_n_resumes: int = 2,top_k_chunks: int = 20):
+    """
+    Returns resumes as structured objects:
+    [
+      { resume_id, resume_text }
+    ]
+    """
+    top_chunks = vector_store.similarity_search(query, k=top_n_resumes * top_k_chunks)
+
+    grouped = defaultdict(list)
+    for c in top_chunks:
+        grouped[c.metadata["resume_id"]].append(c)
+
+    resumes = []
+    for resume_id, chunks in grouped.items():
+        sorted_chunks = sorted(chunks, key=lambda c: c.metadata.get("chunk_id", 0))
+        resumes.append({
+            "resume_id": resume_id,
+            "resume_text": "\n".join(c.page_content for c in sorted_chunks[:top_k_chunks])
+        })
+
+    return resumes[:top_n_resumes]

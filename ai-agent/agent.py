@@ -1,8 +1,6 @@
-from collections import defaultdict
-import json
 import os
-from dotenv import load_dotenv
 import faiss
+from dotenv import load_dotenv
 from langchain_google_genai import (
     ChatGoogleGenerativeAI,
     GoogleGenerativeAIEmbeddings
@@ -14,16 +12,20 @@ from langchain.agents import create_agent
 from langgraph.checkpoint.memory import InMemorySaver
 from utils.retrieve_chunks import get_chunks
 from models import ResumeOutput
-from tools import calculate_experience_years
+from tools import calculate_experience_years,retrieve_ranking_resumes
+
+# Step 1: Configuring API Keys and Initializing the pre-request of th AI Agent
+
 load_dotenv()
-
 model = ChatGoogleGenerativeAI(model="gemini-2.5-flash")
-embeddings = GoogleGenerativeAIEmbeddings(model="models/gemini-embedding-001")
+embeddings = GoogleGenerativeAIEmbeddings(
+    model="models/gemini-embedding-001"
+)
 
-resume_folder=r"C:\Users\smali\Desktop\Langchain\resume-detection\data"
+resume_folder = r"C:\Users\smali\Desktop\Langchain\resume-detection\data"
 list_of_resumes = [
-    os.path.join(resume_folder, f) 
-    for f in os.listdir(resume_folder) 
+    os.path.join(resume_folder, f)
+    for f in os.listdir(resume_folder)
     if f.lower().endswith(".pdf")
 ]
 
@@ -38,81 +40,102 @@ vector_store = FAISS(
     index_to_docstore_id={}
 )
 
-vector_store.add_documents(documents=chunks)
+vector_store.add_documents(chunks)
 
-@tool
-def retrieve_ranking_resume(query: str,top_n_resumes=4, top_k_chunks=20) -> str:
-    """
-    Returns top 2 FULL resumes (joined chunks).
-    """
-    top_chunks = vector_store.similarity_search(query, k=top_k_chunks*top_n_resumes)
+SYSTEM_PROMPT = """
+You are an AI Resume Screening Assistant.
 
-    # Group by document source
-    grouped = defaultdict(list)
-    for c in top_chunks:
-        grouped[c.metadata["resume_id"]].append(c)
+You will receive EXACTLY ONE resume.
 
-    final_resumes = []
-    for _, chunks in grouped.items():
-        sorted_chunks = sorted(chunks, key=lambda c: c.metadata.get("chunk_id", 0))
-        final_resumes.append("\n".join([c.page_content for c in sorted_chunks[:top_k_chunks]]))
+Rules:
+- You MUST call calculate_experience_years exactly once
+- You MUST pass the FULL resume text to the tool
+- You MUST NOT estimate or guess experience
+- You MUST NOT reuse values from other resumes
 
+Extract:
+- resume_id
+- matched_skills
+- years_experience
 
-    return final_resumes[:top_n_resumes]
+Return JSON strictly matching ResumeOutput.
+"""
 
+# ------------------------------------------------------------
+# CREATE AGENT (MODERN API)
+# ------------------------------------------------------------
+agent = create_agent(
+    model=model,
+    tools=[calculate_experience_years],
+    system_prompt=SYSTEM_PROMPT,
+    response_format=ResumeOutput,
+    checkpointer=InMemorySaver(),
+)
+
+# ------------------------------------------------------------
+# QUERY BUILDING
+# ------------------------------------------------------------
 def build_query(title, skills):
     return f"{title}. Skills: {', '.join(skills)}"
 
 title = "Software Engineer"
-requirements = """
-- Bachelor’s degree in Computer Science, Software Engineering, or related field.
-- 2+ years of hands-on experience in software development.
-- Strong proficiency in at least one programming language (Python, Java, JavaScript, C#, or Go).
-- Experience building, testing, and deploying applications or APIs.
-- Familiarity with cloud environments (AWS, Azure, or GCP).
-- Solid understanding of data structures, algorithms, and OOP principles.
-"""
 
-system_prompt = """
-You are an AI Resume Screening Assistant.
+skill_reference = [
+    "Python", "Java", "JavaScript", "C#", "Go",
+    "AWS", "Azure", "GCP", "API"
+]
 
-You will:
-1. Build a short search query (3–6 words).
-2. Call `retrieve_ranking_resume(query)` to fetch top resumes.
-3. Extract the following for each resume:
-   - candidate_id
-   - matched_skills
-   - years_experience
-4. For years_experience:
-    - You MUST call the tool calculate_experience_years
-    - NEVER estimate manually
-    - NEVER guess years from text
-    - ALWAYS pass the FULL reconstructed resume text to the tool
-
-5. Return JSON matching the ResumeOutput model exactly.
-
-Do NOT hallucinate. Use ONLY text present in resumes.
-"""
-agent = create_agent(
-    model,
-    tools=[retrieve_ranking_resume,calculate_experience_years],
-    system_prompt=system_prompt,
-    response_format=ResumeOutput,
-    checkpointer=InMemorySaver()
-)
-
-skill_reference = ["Python|Java|JavaScript|C#|Go", "AWS", "Azure", "GCP", 
-                   "API"]
 retrieval_query = build_query(title, skill_reference)
 
-user_query = f"""
+# ------------------------------------------------------------
+# FINAL ORCHESTRATION (THIS FIXES EVERYTHING)
+# ------------------------------------------------------------
 
-Use the following short retrieval query when calling the resume search tool:
-{retrieval_query}
+# 1️⃣ Retrieve resumes ONCE
+retrieved_resumes = retrieve_ranking_resumes.invoke(retrieval_query)
+final_results = []
+
+# 2️⃣ Invoke agent ONCE PER RESUME
+for resume in retrieved_resumes:
+    response = agent.invoke(
+        {
+            "messages": [{
+                "role": "user",
+                "content": f"""
+Resume ID: {resume['resume_id']}
+
+Resume Text:
+{resume['resume_text']}
 """
+            }]
+        },
+        config={
+            "configurable": {
+                "thread_id": resume["resume_id"]
+            }
+        }
+    )
+    final_results.append(response["messages"][-1])
+# results = []
+# for idx, resume in enumerate(retrieved_resumes):
+#     # Ensure resume_text is a string
+#     if isinstance(resume, dict):
+#         resume_text = resume.get("resume_text", "")
+#     else:
+#         resume_text = str(resume)
 
-response = agent.invoke(
-    {"messages": [{"role": "user", "content": user_query}]},
-    config={"configurable": {"thread_id": "1"}}
-)
-print(response['messages'][-1])
+#     # Skip empty resumes
+#     if not resume_text.strip():
+#         continue
+
+#     # Call the tool with the correct input
+#     years = calculate_experience_years.invoke({"resume_text": resume_text})
+
+#     results.append({
+#         "candidate_id": f"candidate_{idx+1}",
+#         "resume_text": resume_text[:100],
+#         "years_experience": years
+#     })
+
+# print("GPT.PY")
+# print(results)
