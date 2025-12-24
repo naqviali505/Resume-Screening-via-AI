@@ -1,8 +1,8 @@
 import os
 from langchain_community.document_loaders import PyPDFLoader, UnstructuredWordDocumentLoader
 from langchain_text_splitters import CharacterTextSplitter
-
-def get_chunks(list_of_resume, chunk_size=800, chunk_overlap=0):
+# Ingestion Layer
+def get_chunks(list_of_resume, chunk_size=800, chunk_overlap=180):
     """
     Loads resumes and splits them into fixed-size chunks using CharacterTextSplitter.
     Supports both PDF and DOCX files.
