@@ -1,5 +1,3 @@
-from collections import Counter
-import os
 import faiss
 from dotenv import load_dotenv
 from langchain_google_genai import (
@@ -8,70 +6,46 @@ from langchain_google_genai import (
 )
 from langchain_community.vectorstores import FAISS
 from langchain_community.docstore.in_memory import InMemoryDocstore
-from langchain.tools import tool
 from langchain.agents import create_agent
 from langgraph.checkpoint.memory import InMemorySaver
-from utils.helper import get_chunks
 from models import ResumeOutput
-from tools import calculate_experience_years,create_retrieval_tool
+from tools import calculate_experience_years
 from prompt import SYSTEM_PROMPT
-from prompt import build_query
 
 # Step 1: Configuring API Keys and Initializing the pre-request of th AI Agent
 
-load_dotenv()
-model = ChatGoogleGenerativeAI(model="gemini-2.5-flash")
-embeddings = GoogleGenerativeAIEmbeddings(
-    model="models/gemini-embedding-001"
-)
+def get_pre_requisites():
+    load_dotenv()
+    model = ChatGoogleGenerativeAI(model="gemini-2.5-flash")
+    embeddings = GoogleGenerativeAIEmbeddings(
+        model="models/gemini-embedding-001"
+    )
+    # Storage Layer
+    # This line programmatically determines that size (dimension) so the database knows 
+    # how much "space" to allocate for each chunk.
+    embedding_dim = len(embeddings.embed_query("hello world"))
+    # This specific index uses Euclidean Distance (L2) to find similarity.
+    # Think of it like a map. It plots every chunk as a point in a massive 1536-dimensional space.
+    # When you search, it finds the "points" (chunks) that have the shortest straight-line distance to your query.
 
-resume_folder = r"C:\Users\smali\Desktop\Langchain\Resume-Screening-via-AI\data"
-list_of_resumes = [
-    os.path.join(resume_folder, f)
-    for f in os.listdir(resume_folder)
-    if f.lower().endswith(".pdf")
-]
-
-chunks = get_chunks(list_of_resume=list_of_resumes)
-# Storage Layer
-# This line programmatically determines that size (dimension) so the database knows 
-# how much "space" to allocate for each chunk.
-embedding_dim = len(embeddings.embed_query("hello world"))
-# This specific index uses Euclidean Distance (L2) to find similarity.
-# Think of it like a map. It plots every chunk as a point in a massive 1536-dimensional space.
-# When you search, it finds the "points" (chunks) that have the shortest straight-line distance to your query.
-
-index = faiss.IndexFlatL2(embedding_dim)
-vector_store = FAISS(
-    embedding_function=embeddings,
-    index=index,
-    docstore=InMemoryDocstore(),
-    index_to_docstore_id={}
-)
+    index = faiss.IndexFlatL2(embedding_dim)
+    vector_store = FAISS(
+        embedding_function=embeddings,
+        index=index,
+        docstore=InMemoryDocstore(),
+        index_to_docstore_id={}
+    )
+    return model,vector_store
 # # This is the "Execution" step.
 # # Step A (Embedding): It sends all your 800-character chunks to your embedding model and returns a list of numbers for every chunk.
 # # Step B (Indexing): It inserts those numbers into the FAISS index and stores the text + metadata in the Docstore.
-vector_store.add_documents(chunks)
-retrieve_tool = create_retrieval_tool(vector_store)
 
-agent = create_agent(
-    model=model,
-    tools=[calculate_experience_years,retrieve_tool],
-    system_prompt=SYSTEM_PROMPT,
-    response_format=ResumeOutput,
-    checkpointer=InMemorySaver(),
-)
-title = "Fashion Designer"
-skill_reference = ["Fabric Knowledge", "Pattern Making", "Garment Construction", "Forecasting", "Trend Research"]
-work_experience=1
-retrieval_query = build_query(title, skill_reference,work_experience=work_experience)
-
-final_results = []
-
-# for resume in retrieved_resumes:
-final_response = agent.invoke(
-    {"messages": [{"role": "user", "content": f"Find candidates for: {retrieval_query}"}]},
-    config={"configurable": {"thread_id": "batch_process_001"}}
-)
-final_results.append(final_response["messages"][-1])
-print(final_results)
+def get_agent(model,retrieve_tool):
+    agent = create_agent(
+        model=model,
+        tools=[calculate_experience_years,retrieve_tool],
+        system_prompt=SYSTEM_PROMPT,
+        response_format=ResumeOutput,
+        checkpointer=InMemorySaver(),
+    )
+    return agent

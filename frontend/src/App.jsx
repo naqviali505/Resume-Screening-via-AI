@@ -25,12 +25,29 @@ function App() {
     }
   };
 
-  const handleSubmit = (e) => {
-    e.preventDefault();
-    console.log("Files to upload:", files);
-    console.log("Search Query:", { ...formData, skills });
-    alert(`Processing ${files.length} resumes for ${formData.jobTitle}...`);
-  };
+  const handleSubmit = async (e) => {
+  e.preventDefault();
+  
+  const formDataToSend = new FormData();
+  formDataToSend.append('job_title', formData.jobTitle);
+  formDataToSend.append('experience', formData.minExperience);
+  formDataToSend.append('skills', JSON.stringify(skills));
+  
+  files.forEach((file) => {
+    formDataToSend.append('files', file);
+  });
+
+  try {
+    const response = await fetch('http://localhost:8000/process-resumes', {
+      method: 'POST',
+      body: formDataToSend,
+    });
+    const result = await response.json();
+    console.log("Agent Results:", result);
+  } catch (error) {
+    console.error("Error connecting to backend:", error);
+  }
+};
 
   return (
     <div className="container">
@@ -102,5 +119,4 @@ function App() {
     </div>
   );
 }
-
 export default App;
