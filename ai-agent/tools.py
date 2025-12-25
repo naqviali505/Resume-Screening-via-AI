@@ -82,13 +82,13 @@ def calculate_experience_years(resume_text: str) -> float:
 
 # Retrieval Layer
 
-def create_retrieval_tool(vector_store):
+def create_retrieval_tool(vector_store,top_n_resumes):
     """
     Factory function to create the retrieval tool with a specific vector_store.
     """
     
     @tool
-    def retrieve_ranking_resumes(query: str, top_n_resumes: int = 4, top_k_chunks: int = 20):
+    def retrieve_ranking_resumes(query: str, top_k_chunks: int = 20):
         """
         Searches the database for the most relevant resumes based on a query.
         Returns structured resumes: [{resume_id, resume_text}]

@@ -94,7 +94,7 @@ function App() {
         </div>
         <div className="form-group">
           <label>Number of candidates to shortlist</label>
-          <input type="text" value={formData.shortlistedCandidates} onChange={(e) => setFormData({...formData, shortlistedCandidates: e.target.value})} required />
+          <input type="number" value={formData.shortlistedCandidates} onChange={(e) => setFormData({...formData, shortlistedCandidates: e.target.value})} required />
         </div>
 
         <div className="form-group">
