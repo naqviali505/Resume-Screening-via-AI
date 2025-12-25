@@ -11,9 +11,9 @@ from langchain_community.docstore.in_memory import InMemoryDocstore
 from langchain.tools import tool
 from langchain.agents import create_agent
 from langgraph.checkpoint.memory import InMemorySaver
-from utils.retrieve_chunks import get_chunks
+from utils.helper import get_chunks
 from models import ResumeOutput
-from tools import calculate_experience_years,retrieve_ranking_resumes
+from tools import calculate_experience_years,create_retrieval_tool
 from prompt import SYSTEM_PROMPT
 from prompt import build_query
 
@@ -52,39 +52,26 @@ vector_store = FAISS(
 # # Step A (Embedding): It sends all your 800-character chunks to your embedding model and returns a list of numbers for every chunk.
 # # Step B (Indexing): It inserts those numbers into the FAISS index and stores the text + metadata in the Docstore.
 vector_store.add_documents(chunks)
+retrieve_tool = create_retrieval_tool(vector_store)
 
 agent = create_agent(
     model=model,
-    tools=[calculate_experience_years],
+    tools=[calculate_experience_years,retrieve_tool],
     system_prompt=SYSTEM_PROMPT,
     response_format=ResumeOutput,
     checkpointer=InMemorySaver(),
 )
-title = "Software Engineer"
-skill_reference = ["Python", "Java", "JavaScript", "C#", "Go","AWS", "Azure", "GCP", "API"]
-retrieval_query = build_query(title, skill_reference)
+title = "Fashion Designer"
+skill_reference = ["Fabric Knowledge", "Pattern Making", "Garment Construction", "Forecasting", "Trend Research"]
+work_experience=1
+retrieval_query = build_query(title, skill_reference,work_experience=work_experience)
 
-retrieved_resumes = retrieve_ranking_resumes.invoke(retrieval_query)
 final_results = []
 
-for resume in retrieved_resumes:
-    response = agent.invoke(
-        {
-            "messages": [{
-                "role": "user",
-                "content": f"""
-                    Resume ID: {resume['resume_id']}
-
-                    Resume Text:
-                    {resume['resume_text']}
-                    """
-                }]
-        },
-        config={
-            "configurable": {
-                "thread_id": resume["resume_id"]
-            }
-        }
-    )
-    final_results.append(response["messages"][-1])
+# for resume in retrieved_resumes:
+final_response = agent.invoke(
+    {"messages": [{"role": "user", "content": f"Find candidates for: {retrieval_query}"}]},
+    config={"configurable": {"thread_id": "batch_process_001"}}
+)
+final_results.append(final_response["messages"][-1])
 print(final_results)

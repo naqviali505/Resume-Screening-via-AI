@@ -10,3 +10,4 @@ class Candidate(BaseModel):
 
 class ResumeOutput(BaseModel):
     ranked_candidates: List[Candidate] = Field(description="A list of the top ranked candidates based on the job requirements.")
+    

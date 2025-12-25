@@ -81,26 +81,33 @@ def calculate_experience_years(resume_text: str) -> float:
     return round(total_months / 12, 1)
 
 # Retrieval Layer
-@tool
-def retrieve_ranking_resumes(query: str,vector_store,top_n_resumes: int = 4,top_k_chunks: int = 20):
+
+def create_retrieval_tool(vector_store):
     """
-    Returns resumes as structured objects:
-    [
-      { resume_id, resume_text }
-    ]
+    Factory function to create the retrieval tool with a specific vector_store.
     """
-    top_chunks = vector_store.similarity_search(query, k=top_n_resumes * top_k_chunks)
+    
+    @tool
+    def retrieve_ranking_resumes(query: str, top_n_resumes: int = 4, top_k_chunks: int = 20):
+        """
+        Searches the database for the most relevant resumes based on a query.
+        Returns structured resumes: [{resume_id, resume_text}]
+        """
+        # The tool now has access to vector_store because of the closure
+        top_chunks = vector_store.similarity_search(query, k=top_n_resumes * top_k_chunks)
 
-    grouped = defaultdict(list)
-    for c in top_chunks:
-        grouped[c.metadata["resume_id"]].append(c)
+        grouped = defaultdict(list)
+        for c in top_chunks:
+            grouped[c.metadata["resume_id"]].append(c)
 
-    resumes = []
-    for resume_id, chunks in grouped.items():
-        sorted_chunks = sorted(chunks, key=lambda c: c.metadata.get("chunk_id", 0))
-        resumes.append({
-            "resume_id": resume_id,
-            "resume_text": "\n".join(c.page_content for c in sorted_chunks[:top_k_chunks])
-        })
+        resumes = []
+        for resume_id, chunks in grouped.items():
+            sorted_chunks = sorted(chunks, key=lambda c: c.metadata.get("chunk_id", 0))
+            resumes.append({
+                "resume_id": resume_id,
+                "resume_text": "\n".join(c.page_content for c in sorted_chunks[:top_k_chunks])
+            })
 
-    return resumes[:top_n_resumes]
+        return resumes[:top_n_resumes]
+
+    return retrieve_ranking_resumes
