@@ -82,7 +82,7 @@ def calculate_experience_years(resume_text: str) -> float:
 
 # Retrieval Layer
 
-def create_retrieval_tool(vector_store,top_n_resumes):
+def create_retrieval_tool(vector_store,top_n_resumes:int):
     """
     Factory function to create the retrieval tool with a specific vector_store.
     """

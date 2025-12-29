@@ -4,8 +4,6 @@ from typing import List
 import shutil
 import os
 import json
-
-from sqlalchemy import JSON
 app = FastAPI()
 
 import sys
@@ -35,7 +33,7 @@ os.makedirs(UPLOAD_DIR, exist_ok=True)
 async def process_resumes(
     job_title: str = Form(...),
     experience: float = Form(...),
-    shortListCandidates: float = Form(...),
+    shortListCandidates: int = Form(...),
     skills: str = Form(...),
     files: List[UploadFile] = File(...)
 ):
@@ -47,21 +45,21 @@ async def process_resumes(
             shutil.copyfileobj(file.file, buffer)
         saved_paths.append(file_path)
 
+
     chunks = get_chunks(list_of_resume=saved_paths)
     vector_store.add_documents(chunks)
     retrieve_tool = create_retrieval_tool(vector_store,shortListCandidates)
-    resume_agent= get_agent(model=model,retreive_tool=retrieve_tool)
+    resume_agent= get_agent(model,retrieve_tool)
 
     # 3. Parse Skills and Build Query
     skills_list = json.loads(skills)
-    resume_skills = JSON.stringify(skills_list)
+    resume_skills = json.dumps(skills_list)
     query = build_query(job_title, resume_skills, experience)
 
     # 4. Run Agent
     try:
         agent_resp = resume_agent.invoke(
             {"messages": [{"role": "user", "content": f"Find candidates for: {query}"}]})
-        print(agent_resp["messages"][-1])
-        return {"status": "success", "candidates": agent_resp["messages"][-1]} 
+        return {"status": "success", "candidates": agent_resp["messages"][-1].content} 
     except Exception as e:
         raise HTTPException(status_code=500, detail=str(e))

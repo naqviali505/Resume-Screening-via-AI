@@ -46,6 +46,5 @@ def get_agent(model,retrieve_tool):
         tools=[calculate_experience_years,retrieve_tool],
         system_prompt=SYSTEM_PROMPT,
         response_format=ResumeOutput,
-        checkpointer=InMemorySaver(),
     )
     return agent
