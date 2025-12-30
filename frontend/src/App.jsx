@@ -1,7 +1,7 @@
 // src/App.jsx
 import { Routes, Route } from "react-router-dom";
 import ResumeForm from "./pages/ResumeForm";
-import ResultsPage from "./pages/ResultsPage";
+import ResultsPage from "./pages/ResultPage";
 
 function App() {
   return (

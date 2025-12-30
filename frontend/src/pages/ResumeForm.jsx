@@ -1,8 +1,8 @@
 import { useState, useRef } from 'react'; // Added useRef
-import './App.css';
+import '../App.css';
 import { useNavigate } from "react-router-dom";
 
-function App() {
+function ResumeForm() {
   const [formData, setFormData] = useState({ jobTitle: '', minExperience: 2,shortlistedCandidates:0 });
   const [skillInput, setSkillInput] = useState('');
   const [skills, setSkills] = useState([]);
@@ -125,4 +125,4 @@ function App() {
     </div>
   );
 }
-export default App;
+export default ResumeForm;
