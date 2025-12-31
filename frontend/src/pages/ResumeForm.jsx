@@ -29,13 +29,13 @@ function ResumeForm() {
 
   const handleSubmit = async (e) => {
   e.preventDefault();
-  
+
   const formDataToSend = new FormData();
   formDataToSend.append('job_title', formData.jobTitle);
   formDataToSend.append('experience', formData.minExperience);
   formDataToSend.append('shortListCandidates', formData.shortlistedCandidates);
   formDataToSend.append('skills', JSON.stringify(skills));
-  
+
   files.forEach((file) => {
     formDataToSend.append('files', file);
   });
@@ -45,15 +45,40 @@ function ResumeForm() {
       method: 'POST',
       body: formDataToSend,
     });
+
     const result = await response.json();
+
+    // ✅ HANDLE RATE LIMIT
+    if (response.status === 429) {
+      navigate("/results", {
+        state: {
+          error: result.error,
+          message: result.message,
+          action: result.action,
+        },
+      });
+      return;
+    }
+
+    // ❌ Other backend error
+    if (!response.ok) {
+      alert("Something went wrong while processing resumes.");
+      return;
+    }
+
+    // ✅ SUCCESS
     navigate("/results", {
-    state: {
-      candidates: result.candidates,
-    },
-  });  } catch (error) {
+      state: {
+        candidates: result.candidates,
+      },
+    });
+
+  } catch (error) {
     console.error("Error connecting to backend:", error);
+    alert("Backend not reachable.");
   }
 };
+
 
   return (
     <div className="container">

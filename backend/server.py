@@ -46,41 +46,32 @@ async def process_resumes(
             shutil.copyfileobj(file.file, buffer)
         saved_paths.append(file_path)
 
+    chunks = get_chunks(list_of_resume=saved_paths)
+    vector_store.add_documents(chunks)
+    retrieve_tool = create_retrieval_tool(vector_store,shortListCandidates)
+    resume_agent= get_agent(model,retrieve_tool)
 
-    # chunks = get_chunks(list_of_resume=saved_paths)
-    # vector_store.add_documents(chunks)
-    # retrieve_tool = create_retrieval_tool(vector_store,shortListCandidates)
-    # resume_agent= get_agent(model,retrieve_tool)
-
-    # # 3. Parse Skills and Build Query
-    # skills_list = json.loads(skills)
-    # resume_skills = json.dumps(skills_list)
-    # query = build_query(job_title, resume_skills, experience)
+    # 3. Parse Skills and Build Query
+    skills_list = json.loads(skills)
+    resume_skills = json.dumps(skills_list)
+    query = build_query(job_title, resume_skills, experience)
 
     # 4. Run Agent
     try:
-        # agent_resp = resume_agent.invoke(
-        #     {"messages": [{"role": "user", "content": f"Find candidates for: {query}"}]})
-        # print(agent_resp['messages'][-1])
-        # return {"status": "success", "candidates":agent_resp["messages"][-1].content}
-        ranked_candidates = """
-        Candidate(
-            candidate_id='Mahnoor Khaliq-1_250903_183755.pdf',
-            matched_skills=['Python', 'JavaScript', 'AWS'],
-            reason='Candidate has 1.1 years of experience as a Backend Developer, exceeding the 1.0 year requirement. Possesses strong skills in Python, JavaScript, and AWS, which are all explicitly mentioned in the resume.',
-            years_experience=1.1
-        ), 
-        Candidate(
-            candidate_id="Ahsam's Resume.pdf",
-            matched_skills=['Python', 'JavaScript'],
-            reason='Candidate has 2.0 years of experience as a Software Engineer, exceeding the 1.0 year requirement. Possesses strong skills in Python and JavaScript, which are explicitly mentioned in the resume.',
-            years_experience=2.0
-        )
+        agent_resp = resume_agent.invoke({"messages": [{"role": "user", "content": f"Find candidates for: {query}"}]})
+        ranked_candidates = agent_resp['messages'][-1]
+
+        # pattern = r"Candidate\(\s*candidate_id=(?:'|\")(.+?)(?:'|\"),\s*matched_skills=\[(.*?)\],\s*reason='(.+?)',\s*years_experience=([\d.]+)\s*\)"
+        pattern = r"""
+        Candidate\(
+        \s*candidate_id=(?:'|")(.+?)(?:'|"),
+        \s*matched_skills=\[(.*?)\],
+        \s*reason=(?:'|")(.+?)(?:'|"),
+        \s*years_experience=([\d.]+)
+        \s*\)
         """
 
-        pattern = r"Candidate\(\s*candidate_id=(?:'|\")(.+?)(?:'|\"),\s*matched_skills=\[(.*?)\],\s*reason='(.+?)',\s*years_experience=([\d.]+)\s*\)"
-        matches = re.findall(pattern, ranked_candidates, re.DOTALL)
-
+        matches = re.findall(pattern, ranked_candidates, re.DOTALL | re.VERBOSE)
         result = []
         for cid, skills, reason, years in matches:
             result.append({
@@ -89,6 +80,19 @@ async def process_resumes(
                 "reason": reason.strip(),
                 "years_experience": float(years)
             })
-        return {"status": "success", "candidates":result} 
+        return {"status": "success","candidates":result} 
     except Exception as e:
-        raise HTTPException(status_code=500, detail=str(e))
+        error_msg = str(e).lower()
+
+        if "quota" in error_msg or "resourceexhausted" in error_msg or "429" in error_msg:
+            raise HTTPException(
+                status_code=429,
+                detail={
+                    "error": "rate_limit_exceeded",
+                    "message": (
+                        "You have exceeded the free usage limit for AI requests. "
+                        "Please add your own API key to continue using this feature."
+                    ),
+                    "action": "ENTER_API_KEY"
+                }
+            )
