@@ -6,7 +6,7 @@ function ResultsPage() {
 
   const isRateLimited = state?.error === "rate_limit_exceeded";
   const candidates = state?.candidates || [];
-
+  console.log(state)
   return (
     <div className="container">
       <h1>Shortlisted Candidates</h1>
@@ -18,8 +18,8 @@ function ResultsPage() {
           <button onClick={() => navigate("/add-api-key")}>
             Add API Key
           </button>
-
-          <button onClick={() => navigate("/")}>
+          
+          <button  style={{ marginLeft: "10px" }} onClick={() => navigate("/")}>
             Go Back
           </button>
         </div>

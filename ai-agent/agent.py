@@ -16,7 +16,7 @@ from prompt import SYSTEM_PROMPT
 
 def get_pre_requisites():
     load_dotenv()
-    model = ChatGoogleGenerativeAI(model="gemini-2.5-flash")
+    model = ChatGoogleGenerativeAI(model="gemini-2.5-flash",max_retries=0)
     embeddings = GoogleGenerativeAIEmbeddings(
         model="models/gemini-embedding-001"
     )

@@ -21,7 +21,7 @@ model,vector_store = get_pre_requisites()
 # Enable CORS so React can talk to FastAPI
 app.add_middleware(
     CORSMiddleware,
-    allow_origins=["http://localhost:3000"],
+    allow_origins=["http://localhost:5173"],
     allow_credentials=True,
     allow_methods=["*"],
     allow_headers=["*"],
@@ -83,6 +83,7 @@ async def process_resumes(
         return {"status": "success","candidates":result} 
     except Exception as e:
         error_msg = str(e).lower()
+        print(error_msg)
 
         if "quota" in error_msg or "resourceexhausted" in error_msg or "429" in error_msg:
             raise HTTPException(

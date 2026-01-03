@@ -45,22 +45,20 @@ function ResumeForm() {
       method: 'POST',
       body: formDataToSend,
     });
-
     const result = await response.json();
-
-    // ✅ HANDLE RATE LIMIT
     if (response.status === 429) {
+      const errorData = result.detail ?? result;
+
       navigate("/results", {
         state: {
-          error: result.error,
-          message: result.message,
-          action: result.action,
+          error: errorData.error,
+          message: errorData.message,
+          action: errorData.action,
         },
       });
       return;
     }
 
-    // ❌ Other backend error
     if (!response.ok) {
       alert("Something went wrong while processing resumes.");
       return;
@@ -75,10 +73,8 @@ function ResumeForm() {
 
   } catch (error) {
     console.error("Error connecting to backend:", error);
-    alert("Backend not reachable.");
   }
 };
-
 
   return (
     <div className="container">
