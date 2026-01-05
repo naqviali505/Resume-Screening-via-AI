@@ -11,34 +11,33 @@ from langgraph.checkpoint.memory import InMemorySaver
 from models import ResumeOutput
 from tools import calculate_experience_years
 from prompt import SYSTEM_PROMPT
-
+import os
 # Step 1: Configuring API Keys and Initializing the pre-request of th AI Agent
+API_KEY_STORAGE = {"key": None}
+VECTOR_STORE=None
 
-def get_pre_requisites():
-    load_dotenv()
-    model = ChatGoogleGenerativeAI(model="gemini-2.5-flash",max_retries=0)
-    embeddings = GoogleGenerativeAIEmbeddings(
-        model="models/gemini-embedding-001"
-    )
-    # Storage Layer
-    # This line programmatically determines that size (dimension) so the database knows 
-    # how much "space" to allocate for each chunk.
-    embedding_dim = len(embeddings.embed_query("hello world"))
-    # This specific index uses Euclidean Distance (L2) to find similarity.
-    # Think of it like a map. It plots every chunk as a point in a massive 1536-dimensional space.
-    # When you search, it finds the "points" (chunks) that have the shortest straight-line distance to your query.
+def get_pre_requisites(api_key=None):
+    global VECTOR_STORE
+    if api_key:
+        os.environ["GOOGLE_API_KEY"] = api_key
+        API_KEY_STORAGE["key"] = api_key
+    elif API_KEY_STORAGE.get("key"):
+        os.environ["GOOGLE_API_KEY"] = API_KEY_STORAGE["key"]
+    else:
+        load_dotenv()
 
-    index = faiss.IndexFlatL2(embedding_dim)
-    vector_store = FAISS(
-        embedding_function=embeddings,
-        index=index,
-        docstore=InMemoryDocstore(),
-        index_to_docstore_id={}
-    )
-    return model,vector_store
-# # This is the "Execution" step.
-# # Step A (Embedding): It sends all your 800-character chunks to your embedding model and returns a list of numbers for every chunk.
-# # Step B (Indexing): It inserts those numbers into the FAISS index and stores the text + metadata in the Docstore.
+    model = ChatGoogleGenerativeAI(model="gemini-2.5-flash", max_retries=0)
+    embeddings = GoogleGenerativeAIEmbeddings(model="models/gemini-embedding-001")
+    if VECTOR_STORE is None:
+        embedding_dim = len(embeddings.embed_query("hello world"))
+        index = faiss.IndexFlatL2(embedding_dim)
+        VECTOR_STORE = FAISS(
+            embedding_function=embeddings,
+            index=index,
+            docstore=InMemoryDocstore(),
+            index_to_docstore_id={}
+        )
+    return model, VECTOR_STORE
 
 def get_agent(model,retrieve_tool):
     agent = create_agent(

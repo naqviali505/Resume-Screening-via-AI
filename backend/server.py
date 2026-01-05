@@ -1,12 +1,11 @@
 import re
-from fastapi import FastAPI, UploadFile, File, Form, HTTPException
+from fastapi import FastAPI, Request, UploadFile, File, Form, HTTPException
 from fastapi.middleware.cors import CORSMiddleware
 from typing import List
 import shutil
 import os
 import json
 app = FastAPI()
-
 import sys
 sys.path.insert(1,r"C:\Users\smali\Desktop\Langchain\Resume-Screening-via-AI\ai-agent")
 sys.path.insert(1,r"C:\Users\smali\Desktop\Langchain\Resume-Screening-via-AI\ai-agent\utils")
@@ -16,8 +15,6 @@ from prompt import build_query
 from agent import get_pre_requisites,get_agent
 from tools import create_retrieval_tool
 
-model,vector_store = get_pre_requisites()
-
 # Enable CORS so React can talk to FastAPI
 app.add_middleware(
     CORSMiddleware,
@@ -26,7 +23,7 @@ app.add_middleware(
     allow_methods=["*"],
     allow_headers=["*"],
 )
-
+API_KEY_STORAGE={}
 UPLOAD_DIR = "data"
 os.makedirs(UPLOAD_DIR, exist_ok=True)
 
@@ -47,6 +44,8 @@ async def process_resumes(
         saved_paths.append(file_path)
 
     chunks = get_chunks(list_of_resume=saved_paths)
+    api_key = API_KEY_STORAGE.get("key")
+    model, vector_store = get_pre_requisites(api_key=api_key)    
     vector_store.add_documents(chunks)
     retrieve_tool = create_retrieval_tool(vector_store,shortListCandidates)
     resume_agent= get_agent(model,retrieve_tool)
@@ -59,7 +58,7 @@ async def process_resumes(
     # 4. Run Agent
     try:
         agent_resp = resume_agent.invoke({"messages": [{"role": "user", "content": f"Find candidates for: {query}"}]})
-        ranked_candidates = agent_resp['messages'][-1]
+        ranked_candidates = agent_resp['messages'][-1].content
 
         # pattern = r"Candidate\(\s*candidate_id=(?:'|\")(.+?)(?:'|\"),\s*matched_skills=\[(.*?)\],\s*reason='(.+?)',\s*years_experience=([\d.]+)\s*\)"
         pattern = r"""
@@ -83,8 +82,6 @@ async def process_resumes(
         return {"status": "success","candidates":result} 
     except Exception as e:
         error_msg = str(e).lower()
-        print(error_msg)
-
         if "quota" in error_msg or "resourceexhausted" in error_msg or "429" in error_msg:
             raise HTTPException(
                 status_code=429,
@@ -97,3 +94,15 @@ async def process_resumes(
                     "action": "ENTER_API_KEY"
                 }
             )
+
+@app.post("/set-api-key")
+async def set_api_key(request: Request):
+    data = await request.json()
+    api_key = data.get("api_key")
+    if not api_key:
+        return {"status": "error", "message": "API key missing"}
+
+    API_KEY_STORAGE["key"] = api_key
+    get_pre_requisites(api_key=api_key)
+
+    return {"status": "success", "message": "API key set"}

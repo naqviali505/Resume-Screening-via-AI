@@ -6,6 +6,7 @@ function ResumeForm() {
   const [formData, setFormData] = useState({ jobTitle: '', minExperience: 2,shortlistedCandidates:0 });
   const [skillInput, setSkillInput] = useState('');
   const [skills, setSkills] = useState([]);
+  const [loading, setLoading] = useState(false);
   const [files, setFiles] = useState([]);
   const fileInputRef = useRef(null);
   const navigate = useNavigate();
@@ -27,18 +28,16 @@ function ResumeForm() {
     }
   };
 
-  const handleSubmit = async (e) => {
+const handleSubmit = async (e) => {
   e.preventDefault();
+  setLoading(true);
 
   const formDataToSend = new FormData();
   formDataToSend.append('job_title', formData.jobTitle);
   formDataToSend.append('experience', formData.minExperience);
   formDataToSend.append('shortListCandidates', formData.shortlistedCandidates);
   formDataToSend.append('skills', JSON.stringify(skills));
-
-  files.forEach((file) => {
-    formDataToSend.append('files', file);
-  });
+  files.forEach((file) => formDataToSend.append('files', file));
 
   try {
     const response = await fetch('http://localhost:8000/process-resumes', {
@@ -46,9 +45,9 @@ function ResumeForm() {
       body: formDataToSend,
     });
     const result = await response.json();
+
     if (response.status === 429) {
       const errorData = result.detail ?? result;
-
       navigate("/results", {
         state: {
           error: errorData.error,
@@ -64,7 +63,6 @@ function ResumeForm() {
       return;
     }
 
-    // ✅ SUCCESS
     navigate("/results", {
       state: {
         candidates: result.candidates,
@@ -73,18 +71,29 @@ function ResumeForm() {
 
   } catch (error) {
     console.error("Error connecting to backend:", error);
+    alert("Error connecting to backend");
+  } finally {
+    setLoading(false);
   }
 };
 
+
   return (
     <div className="container">
+      {loading && (
+        <div className="loader-overlay">
+          <div className="loader">
+            <div className="spinner"></div>
+            <span>Processing resumes...</span>
+          </div>
+        </div>
+  )}
       <header>
         <h1>AI Resume Screener</h1>
         <p>Upload resumes and find the best fit</p>
       </header>
 
       <form className="screening-form" onSubmit={handleSubmit}>
-        
         <div className="form-group">
           <label>Upload Resumes</label>
           <div className="upload-section">
@@ -100,7 +109,8 @@ function ResumeForm() {
               multiple  
               hidden 
               ref={fileInputRef} 
-              onChange={handleFileChange} 
+              onChange={handleFileChange}
+              required 
             />
             
             {files.length > 0 && (
@@ -113,6 +123,7 @@ function ResumeForm() {
                 ))}
               </ul>
             )}
+
           </div>
         </div>
         <div className="form-group">
@@ -121,12 +132,16 @@ function ResumeForm() {
         </div>
         <div className="form-group">
           <label>Number of candidates to shortlist</label>
-          <input type="number" value={formData.shortlistedCandidates} onChange={(e) => setFormData({...formData, shortlistedCandidates: e.target.value})} required />
+          <input type="number" min="1"value={formData.shortlistedCandidates} 
+          onChange={(e) => { 
+            const value = Math.max(1, Number(e.target.value));
+            setFormData({...formData, shortlistedCandidates: value});
+          }} required />
         </div>
 
         <div className="form-group">
           <label>Min Experience: {formData.minExperience} years</label>
-          <input type="range" min="0" max="15" step="0.5" value={formData.minExperience} onChange={(e) => setFormData({...formData, minExperience: e.target.value})} />
+          <input type="range" min="0" max="15" step="0.5" value={formData.minExperience} onChange={(e) => setFormData({...formData, minExperience: e.target.value})} required/>
         </div>
 
         <div className="form-group">
