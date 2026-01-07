@@ -1,0 +1,35 @@
+fastapi
+uvicorn[standard]
+
+# LangChain & ecosystem
+langchain
+langchain-community
+langchain-text-splitters
+langgraph
+
+# Google Gemini (Generative AI)
+langchain-google-genai
+google-generativeai
+
+# Vector store
+faiss-cpu
+
+# Document loaders
+pypdf
+unstructured
+python-docx
+
+# Environment variables
+python-dotenv
+
+# Date parsing
+dateparser
+
+# Validation & typing
+pydantic
+
+# File handling
+python-multipart
+
+# Utilities
+requests
