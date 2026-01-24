@@ -33,3 +33,6 @@ python-multipart
 
 # Utilities
 requests
+elevenlabs
+pydub
+simpleaudio

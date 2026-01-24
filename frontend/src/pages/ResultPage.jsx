@@ -5,15 +5,13 @@ import ApiKeyDialog from "./APIScreen";
 function ResultsPage() {
   const { state } = useLocation();
   const navigate = useNavigate();
-
   const isRateLimited = state?.error === "rate_limit_exceeded";
   const candidates = state?.candidates || [];
-
+  const BACKEND_URI = import.meta.env.VITE_BACKEND_URI;
   const [showApiDialog, setShowApiDialog] = useState(false);
-
   const handleAddApiKey = async (key) => {
   try {
-    const response = await fetch("http://localhost:8000/set-api-key", {
+    const response = await fetch(`${BACKEND_URI}/set-api-key`, {
       method: "POST",
       headers: {
         "Content-Type": "application/json",

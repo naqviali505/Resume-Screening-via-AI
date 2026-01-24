@@ -5,24 +5,21 @@ from typing import List
 import shutil
 import os
 import json
+from ai_agent.utils.helper import get_chunks
+from ai_agent.prompt import build_query
+from ai_agent.agent import get_pre_requisites, get_agent
+from ai_agent.tools import create_retrieval_tool
+
 app = FastAPI()
-import sys
-sys.path.insert(1,r"C:\Users\smali\Desktop\Langchain\Resume-Screening-via-AI\ai-agent")
-sys.path.insert(1,r"C:\Users\smali\Desktop\Langchain\Resume-Screening-via-AI\ai-agent\utils")
-
-from helper import get_chunks
-from prompt import build_query
-from agent import get_pre_requisites,get_agent
-from tools import create_retrieval_tool
-
 # Enable CORS so React can talk to FastAPI
 app.add_middleware(
     CORSMiddleware,
-    allow_origins=["http://localhost:5173"],
+    allow_origins=["*"],
     allow_credentials=True,
     allow_methods=["*"],
     allow_headers=["*"],
 )
+
 API_KEY_STORAGE={}
 UPLOAD_DIR = "data"
 os.makedirs(UPLOAD_DIR, exist_ok=True)
@@ -43,7 +40,7 @@ async def process_resumes(
             shutil.copyfileobj(file.file, buffer)
         saved_paths.append(file_path)
 
-    chunks = get_chunks(list_of_resume=saved_paths)
+    chunks = get_chunks(list_of_resumes=saved_paths)
     api_key = API_KEY_STORAGE.get("key")
     model, vector_store = get_pre_requisites(api_key=api_key)    
     vector_store.add_documents(chunks)

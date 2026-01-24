@@ -3,6 +3,7 @@ import '../App.css';
 import { useNavigate } from "react-router-dom";
 
 function ResumeForm() {
+  const BACKEND_URI = import.meta.env.VITE_BACKEND_URI;
   const [formData, setFormData] = useState({ jobTitle: '', minExperience: 2,shortlistedCandidates:0 });
   const [skillInput, setSkillInput] = useState('');
   const [skills, setSkills] = useState([]);
@@ -40,12 +41,11 @@ const handleSubmit = async (e) => {
   files.forEach((file) => formDataToSend.append('files', file));
 
   try {
-    const response = await fetch('http://localhost:8000/process-resumes', {
+    const response = await fetch(`${BACKEND_URI}/process-resumes`, {
       method: 'POST',
       body: formDataToSend,
     });
     const result = await response.json();
-
     if (response.status === 429) {
       const errorData = result.detail ?? result;
       navigate("/results", {
@@ -76,7 +76,6 @@ const handleSubmit = async (e) => {
     setLoading(false);
   }
 };
-
 
   return (
     <div className="container">

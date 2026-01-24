@@ -7,10 +7,9 @@ from langchain_google_genai import (
 from langchain_community.vectorstores import FAISS
 from langchain_community.docstore.in_memory import InMemoryDocstore
 from langchain.agents import create_agent
-from langgraph.checkpoint.memory import InMemorySaver
-from models import ResumeOutput
-from tools import calculate_experience_years
-from prompt import SYSTEM_PROMPT
+from ai_agent.models import ResumeOutput
+from ai_agent.tools import calculate_experience_years
+from ai_agent.prompt import SYSTEM_PROMPT
 import os
 # Step 1: Configuring API Keys and Initializing the pre-request of th AI Agent
 API_KEY_STORAGE = {"key": None}
